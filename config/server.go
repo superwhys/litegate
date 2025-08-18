@@ -1,4 +1,4 @@
-// File:		config.go
+// File:		server.go
 // Created by:	Hoven
 // Created on:	2025-08-16
 //
