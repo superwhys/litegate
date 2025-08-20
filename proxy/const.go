@@ -10,11 +10,6 @@ package proxy
 
 import "time"
 
-type claimContextKey string
-
 const (
-	PlaceHeader = "$header"
-	PlaceQuery  = "$query"
-
 	DefaultTimeout = 30 * time.Second
 )

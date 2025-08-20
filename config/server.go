@@ -7,3 +7,10 @@
 // (c) 2024 Example Corp. All rights reserved.
 
 package config
+
+import "time"
+
+type GatewayConfig struct {
+	Services []string      `json:"services"`
+	Timeout  time.Duration `json:"timeout"`
+}

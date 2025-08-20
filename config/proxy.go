@@ -47,7 +47,11 @@ type Auth struct {
 	// JWT解码后数据存储位置映射
 	// {
 	// 	"$query.user_id": "user_id",
+	// 	"$header.X-User": "userName",
 	// }
+	// 该示例表示
+	// 1. 将JWT解码后的 `user_id` 数据存储到请求 query中, key为 user_id
+	// 2. 将JWT解码后的 `userName` 数据存储到请求 header中, key为 X-User
 	Claims map[string]string `json:"claims" validate:"required"`
 }
 
