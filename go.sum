@@ -236,8 +236,8 @@ github.com/mattn/go-isatty v0.0.20/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D
 github.com/mattn/go-runewidth v0.0.16 h1:E5ScNMtiwvlvB5paMFdw9p4kSQzbXFikJ5SQO6TULQc=
 github.com/mattn/go-runewidth v0.0.16/go.mod h1:Jdepj2loyihRzMpdS35Xk/zdY8IAYHsh153qUoGf23w=
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
-github.com/miebyte/goutils v1.0.12 h1:rlqeWRMKTzyymjsMFPzT0rIuZV9/OLxRhhvSG9jxRhg=
-github.com/miebyte/goutils v1.0.12/go.mod h1:i9NQwHRhPn4Kzv/1dmY2ecGV75ySjLq9Dd2plTovfSg=
+github.com/miebyte/goutils v1.0.14 h1:N/78jLiV+FiraKfOMn+nvP8ltH4R88Etdy26Q4+htZo=
+github.com/miebyte/goutils v1.0.14/go.mod h1:i9NQwHRhPn4Kzv/1dmY2ecGV75ySjLq9Dd2plTovfSg=
 github.com/miekg/dns v1.1.56 h1:5imZaSeoRNvpM9SzWNhEcP9QliKiz20/dA2QabIGVnE=
 github.com/miekg/dns v1.1.56/go.mod h1:cRm6Oo2C8TY9ZS/TqsSrseAcncm74lfK5G+ikN2SWWY=
 github.com/mitchellh/go-homedir v1.1.0 h1:lukF9ziXFxDFPkA1vsr5zpc1XuPDn/wFntq5mG+4E0Y=

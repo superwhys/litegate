@@ -6,7 +6,7 @@ require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-playground/assert/v2 v2.2.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
-	github.com/miebyte/goutils v1.0.12
+	github.com/miebyte/goutils v1.0.14
 )
 
 require (
