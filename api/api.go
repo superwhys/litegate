@@ -11,34 +11,24 @@ package api
 import (
 	"net/http"
 
-	"github.com/gin-gonic/gin"
 	"github.com/miebyte/goutils/ginutils"
+	"github.com/superwhys/litegate/api/middleware"
+	"github.com/superwhys/litegate/api/router"
+	"github.com/superwhys/litegate/config"
 )
 
-func SetupGatewayApp() http.Handler {
+func SetupGatewayApp(configLoader config.ProxyConfigLoader) http.Handler {
 	app := ginutils.NewServerHandler(
 		// debug group
 		ginutils.WithGroupHandlers(
-			ginutils.WithPrefix("debug"),
-			ginutils.WithRouterHandler(),
+			ginutils.WithPrefix("/debug"),
+			ginutils.WithRouterHandler(router.DebugRouter(configLoader)),
 		),
-		ginutils.WithAnyHandler("/__:serviceName/*any", func(c *gin.Context) {
-			serviceName := c.Param("serviceName")
-			path := c.Param("any")
-
-			// 验证服务名称格式
-			if serviceName == "" {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "service name is required"})
-				return
-			}
-
-			// 这里可以根据 serviceName 进行不同的处理逻辑
-			c.JSON(http.StatusOK, gin.H{
-				"message": "Service Gateway",
-				"service": serviceName,
-				"path":    path,
-			})
-		}),
+		ginutils.WithGroupHandlers(
+			ginutils.WithPrefix("/__:serviceName"),
+			ginutils.WithMiddleware(middleware.ParseProxyConfig(configLoader)),
+			ginutils.WithAnyHandler("/*any", router.ProxyRouter()),
+		),
 	)
 
 	return app

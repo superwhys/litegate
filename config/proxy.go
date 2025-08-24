@@ -9,29 +9,74 @@
 package config
 
 import (
-	"fmt"
 	"math/rand"
+	"net/http"
+	"regexp"
 	"time"
+
+	"github.com/miebyte/goutils/logging"
 )
 
 type ProxyConfigLoader interface {
 	Get(service string) (*RouteConfig, error)
 	GetAll() ([]*RouteConfig, error)
-	Watch()
+	Watch() error
 }
 
-// Config 主配置结构体
+type Upstream struct {
+	Auth        *Auth
+	Timeout     time.Duration
+	UpstreamURL string
+	TargetPath  string
+}
+
+// RouteConfig 路由配置
 type RouteConfig struct {
-	// 代理地址列表（必填）
-	Proxy []string `json:"proxy" validate:"required"`
+	// 代理地址列表
+	Proxy ProxyConfig `json:"proxy" validate:"required"`
 	// 超时时间（选填，默认30秒）
-	Timeout int `json:"timeout"`
+	Timeout time.Duration `json:"timeout"`
 	// 身份验证配置（选填）
 	Auth *Auth `json:"auth,omitempty"`
 	// 路由配置（必填）
 	Routes []Route `json:"routes" validate:"required,min=1"`
-	// 版本号（用于乐观锁）
-	Version int32 `json:"version"`
+}
+
+func (rc *RouteConfig) MatchRequest(req *http.Request) *Upstream {
+	for _, route := range rc.Routes {
+		if route.Match == "" {
+			continue
+		}
+
+		regex, err := regexp.Compile(route.Match)
+		if err != nil {
+			logging.Errorf("正则表达式编译失败，match: %s, error: %v", route.Match, err)
+			return nil
+		}
+
+		timeout := rc.Timeout
+		if route.Timeout > 0 {
+			timeout = route.Timeout
+		}
+
+		auth := rc.Auth
+		if route.DisableAuth {
+			auth = nil
+		} else if route.Auth != nil {
+			auth = route.Auth
+		}
+
+		if regex.MatchString(req.URL.Path) {
+			return &Upstream{
+				Auth:        auth,
+				Timeout:     timeout,
+				UpstreamURL: route.Proxy.pickAddress(),
+				TargetPath:  req.URL.Path,
+			}
+		}
+	}
+
+	return nil
 }
 
 // Auth 身份验证配置
@@ -59,57 +104,28 @@ type Auth struct {
 type Route struct {
 	// URL匹配 (正则表达式)
 	Match string `json:"match" validate:"required"`
-	// 代理配置（单个地址或地址数组）
+	// 代理地址列表
 	Proxy ProxyConfig `json:"proxy"`
 	// 超时时间（选填）
-	Timeout int `json:"timeout"`
+	Timeout time.Duration `json:"timeout"`
 	// 是否禁用身份验证
 	DisableAuth bool `json:"disable_auth"`
 	// 身份验证配置覆盖
 	Auth *Auth `json:"auth,omitempty"`
 }
 
-// ProxyConfig 代理配置，支持单个地址或地址数组
-type ProxyConfig struct {
-	// 单个地址
-	Address string
-	// 地址数组（用于负载均衡）
-	Addresses []string
-}
+type ProxyConfig []string
 
 func init() {
 	rand.New(rand.NewSource(time.Now().UnixNano()))
 }
 
-func (p ProxyConfig) pickAddress() (string, error) {
-	if p.Address != "" {
-		return p.Address, nil
+func (p ProxyConfig) pickAddress() string {
+	if len(p) == 0 {
+		return ""
 	}
-	if len(p.Addresses) > 0 {
-		if len(p.Addresses) == 1 {
-			return p.Addresses[0], nil
-		}
-		return p.Addresses[rand.Intn(len(p.Addresses))], nil
+	if len(p) == 1 {
+		return p[0]
 	}
-	return "", fmt.Errorf("empty downstream addresses")
-}
-
-type localConfigLoader struct {
-	path string
-}
-
-func NewLocalConfigLoader(path string) *localConfigLoader {
-	return &localConfigLoader{path}
-}
-
-func (ll *localConfigLoader) Get(service string) (*RouteConfig, error) {
-	return nil, nil
-}
-
-func (ll *localConfigLoader) GetAll(service string) ([]*RouteConfig, error) {
-	return nil, nil
-}
-
-func (ll *localConfigLoader) Watch() {
-
+	return p[rand.Intn(len(p))]
 }

@@ -13,16 +13,23 @@ import (
 	"github.com/miebyte/goutils/flags"
 	"github.com/miebyte/goutils/logging"
 	"github.com/superwhys/litegate/api"
+	"github.com/superwhys/litegate/config"
+	"github.com/superwhys/litegate/config/loader"
 )
 
 var (
-	port = flags.Int("port", 8080, "the service listen port")
+	port       = flags.Int("port", 8080, "the service listen port")
+	configFlag = flags.Struct("config", (*config.GatewayConfig)(nil), "gateway server config")
 )
 
 func main() {
 	flags.Parse()
 
-	gatewayApp := api.SetupGatewayApp()
+	gatewayConfig := new(config.GatewayConfig)
+	logging.PanicError(configFlag(gatewayConfig))
+
+	proxyConfigLoader := loader.NewLocalConfigLoader("./content/proxy")
+	gatewayApp := api.SetupGatewayApp(proxyConfigLoader)
 
 	srv := cores.NewCores(
 		cores.WithHttpCORS(),

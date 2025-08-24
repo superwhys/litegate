@@ -1,4 +1,4 @@
-// File:		config.go
+// File:		agent.go
 // Created by:	Hoven
 // Created on:	2025-08-15
 //
@@ -6,7 +6,7 @@
 //
 // (c) 2024 Example Corp. All rights reserved.
 
-package proxy
+package agent
 
 import (
 	"context"
@@ -26,38 +26,41 @@ type Agent interface {
 
 type agent struct {
 	proxy         *httputil.ReverseProxy
-	upstreamURL   *url.URL
 	auth          *config.Auth
 	timeout       time.Duration
 	authenticator auth.Authenticator
 }
 
-// NewAgent creates a new agent with the given auth, upstream URL, target path, and timeout.
-// The agent is a HTTP handler that proxies requests to the upstream URL.
-// The agent also injects the auth data into the request.
-// The agent also sets the timeout for the request.
-func NewAgent(authConfig *config.Auth, upstreamURL string, targetPath string, timeout time.Duration) (*agent, error) {
-	target, err := url.Parse(upstreamURL)
+func NewAgent(upstreamConf *config.Upstream) (*agent, error) {
+	target, err := url.Parse(upstreamConf.UpstreamURL)
 	if err != nil {
 		return nil, err
 	}
 
-	if target.Scheme == "" {
-		target.Scheme = "http"
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.Director = func(req *http.Request) {
+		req.URL.Scheme = target.Scheme
+		req.URL.Host = target.Host
+		req.URL.Path = upstreamConf.TargetPath
+		req.URL.RawPath = upstreamConf.TargetPath
+
+		targetQuery := target.RawQuery
+		if targetQuery == "" || req.URL.RawQuery == "" {
+			req.URL.RawQuery = targetQuery + req.URL.RawQuery
+		} else {
+			req.URL.RawQuery = targetQuery + "&" + req.URL.RawQuery
+		}
 	}
 
-	target.Path = targetPath
-	proxy := httputil.NewSingleHostReverseProxy(target)
-	authenticator, err := auth.NewAuthenticator(authConfig)
+	authenticator, err := auth.NewAuthenticator(upstreamConf.Auth)
 	if err != nil {
 		return nil, err
 	}
 
 	return &agent{
 		proxy:         proxy,
-		upstreamURL:   target,
-		auth:          authConfig,
-		timeout:       timeout,
+		auth:          upstreamConf.Auth,
+		timeout:       upstreamConf.Timeout,
 		authenticator: authenticator,
 	}, nil
 }

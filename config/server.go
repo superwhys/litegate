@@ -11,6 +11,7 @@ package config
 import "time"
 
 type GatewayConfig struct {
+	// Services list which allowed to be accessed
 	Services []string      `json:"services"`
 	Timeout  time.Duration `json:"timeout"`
 }
