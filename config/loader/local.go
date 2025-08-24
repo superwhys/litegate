@@ -1,9 +1,11 @@
 package loader
 
 import (
+	"encoding/json"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
@@ -13,24 +15,98 @@ import (
 
 type localConfigLoader struct {
 	configDir string
-	watcher   *fsnotify.Watcher
-	mu        sync.RWMutex
-	stopChan  chan struct{}
+
+	routeConfigs map[string]*config.RouteConfig
+	watcher      *fsnotify.Watcher
+	stopChan     chan struct{}
+	mu           sync.RWMutex
 }
 
 func NewLocalConfigLoader(configDir string) *localConfigLoader {
-	return &localConfigLoader{
-		configDir: configDir,
-		stopChan:  make(chan struct{}),
+	ll := &localConfigLoader{
+		configDir:    configDir,
+		routeConfigs: make(map[string]*config.RouteConfig),
+		stopChan:     make(chan struct{}),
 	}
+
+	ll.loadAllConfigs()
+
+	return ll
+}
+
+func (ll *localConfigLoader) loadAllConfigs() {
+	ll.mu.Lock()
+	defer ll.mu.Unlock()
+
+	if err := os.MkdirAll(ll.configDir, 0755); err != nil {
+		logging.Errorf("create config dir error: %v", err)
+		return
+	}
+
+	err := filepath.WalkDir(ll.configDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			logging.Errorf("walk config dir error: %v", err)
+			return err
+		}
+
+		if d.IsDir() {
+			return nil
+		}
+
+		if !ll.isConfigFile(path) {
+			return nil
+		}
+
+		if err := ll.loadConfigFile(path); err != nil {
+			logging.Errorf("load config file error: %s, %v", path, err)
+			return nil
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		logging.Errorf("load config file error: %v", err)
+	}
+
+	logging.Infof("load %d config files", len(ll.routeConfigs))
+}
+
+func (ll *localConfigLoader) loadConfigFile(filePath string) error {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return err
+	}
+
+	var routeConfig config.RouteConfig
+	if err := json.Unmarshal(data, &routeConfig); err != nil {
+		return err
+	}
+
+	serviceName := strings.TrimSuffix(filepath.Base(filePath), filepath.Ext(filePath))
+
+	ll.routeConfigs[serviceName] = &routeConfig
+
+	logging.Infof("load config file: %s -> %s", filePath, serviceName)
+	return nil
 }
 
 func (ll *localConfigLoader) Get(service string) (*config.RouteConfig, error) {
-	return nil, nil
+	ll.mu.RLock()
+	defer ll.mu.RUnlock()
+
+	return ll.routeConfigs[service], nil
 }
 
 func (ll *localConfigLoader) GetAll() ([]*config.RouteConfig, error) {
-	return nil, nil
+	ll.mu.RLock()
+	defer ll.mu.RUnlock()
+
+	routeConfigs := make([]*config.RouteConfig, 0, len(ll.routeConfigs))
+	for _, routeConfig := range ll.routeConfigs {
+		routeConfigs = append(routeConfigs, routeConfig)
+	}
+	return routeConfigs, nil
 }
 
 func (ll *localConfigLoader) Watch() error {
@@ -60,7 +136,7 @@ func (ll *localConfigLoader) Watch() error {
 
 	go ll.watchLoop()
 
-	logging.Infof("开始监听配置目录: %s", ll.configDir)
+	logging.Infof("start watch config dir: %s", ll.configDir)
 	return nil
 }
 
@@ -73,7 +149,7 @@ func (ll *localConfigLoader) StopWatch() {
 		close(ll.stopChan)
 		ll.watcher.Close()
 		ll.watcher = nil
-		logging.Infof("停止监听配置目录: %s", ll.configDir)
+		logging.Infof("stop watch config dir: %s", ll.configDir)
 	}
 }
 
@@ -90,7 +166,7 @@ func (ll *localConfigLoader) watchLoop() {
 			if !ok {
 				return
 			}
-			logging.Errorf("文件监听错误: %v", err)
+			logging.Errorf("watch config dir error: %v", err)
 		case <-ll.stopChan:
 			return
 		}
@@ -104,10 +180,10 @@ func (ll *localConfigLoader) handleFileEvent(event fsnotify.Event) {
 
 	switch {
 	case event.Has(fsnotify.Write):
-		logging.Infof("配置文件已修改: %s", event.Name)
+		logging.Infof("config file changed: %s", event.Name)
 		ll.onConfigChanged(event.Name)
 	case event.Has(fsnotify.Create):
-		logging.Infof("配置文件已创建: %s", event.Name)
+		logging.Infof("config file created: %s", event.Name)
 
 		// 如果是新创建的目录，添加到监听列表
 		if ll.isDirectory(event.Name) {
@@ -115,7 +191,7 @@ func (ll *localConfigLoader) handleFileEvent(event fsnotify.Event) {
 		}
 		ll.onConfigChanged(event.Name)
 	case event.Has(fsnotify.Remove):
-		logging.Infof("配置文件已删除: %s", event.Name)
+		logging.Infof("config file removed: %s", event.Name)
 		ll.onConfigRemoved(event.Name)
 	}
 }
@@ -143,12 +219,16 @@ func (ll *localConfigLoader) isDirectory(path string) bool {
 }
 
 func (ll *localConfigLoader) onConfigChanged(filename string) {
-	// 这里可以添加配置文件重新加载的逻辑
-	// 例如：重新解析配置文件、更新内存中的配置等
-	logging.Infof("处理配置文件变化: %s", filename)
+	if err := ll.loadConfigFile(filename); err != nil {
+		logging.Errorf("reload config file error: %s, %v", filename, err)
+	}
 }
 
 func (ll *localConfigLoader) onConfigRemoved(filename string) {
-	// 这里可以添加配置文件删除后的处理逻辑
-	logging.Infof("处理配置文件删除: %s", filename)
+	ll.mu.Lock()
+	defer ll.mu.Unlock()
+
+	serviceName := strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename))
+	delete(ll.routeConfigs, serviceName)
+	logging.Infof("remove config file: %s -> %s", filename, serviceName)
 }

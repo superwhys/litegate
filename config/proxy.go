@@ -9,6 +9,7 @@
 package config
 
 import (
+	"context"
 	"math/rand"
 	"net/http"
 	"regexp"
@@ -35,28 +36,34 @@ type RouteConfig struct {
 	// 代理地址列表
 	Proxy ProxyConfig `json:"proxy" validate:"required"`
 	// 超时时间（选填，默认30秒）
-	Timeout time.Duration `json:"timeout"`
+	Timeout string `json:"timeout"`
 	// 身份验证配置（选填）
 	Auth *Auth `json:"auth,omitempty"`
 	// 路由配置（必填）
 	Routes []Route `json:"routes" validate:"required,min=1"`
 }
 
-func (rc *RouteConfig) MatchRequest(req *http.Request) *Upstream {
+func (rc *RouteConfig) MatchRequest(ctx context.Context, req *http.Request) *Upstream {
 	for _, route := range rc.Routes {
 		if route.Match == "" {
 			continue
 		}
 
+		logging.Debugc(ctx, "try match route: %s", logging.JsonifyNoIndent(route))
 		regex, err := regexp.Compile(route.Match)
 		if err != nil {
-			logging.Errorf("正则表达式编译失败，match: %s, error: %v", route.Match, err)
+			logging.Errorf("compile regex error: %v", err)
 			return nil
 		}
 
-		timeout := rc.Timeout
-		if route.Timeout > 0 {
-			timeout = route.Timeout
+		timeoutStr := rc.Timeout
+		if route.Timeout != "" {
+			timeoutStr = route.Timeout
+		}
+		timeout, err := time.ParseDuration(timeoutStr)
+		if err != nil {
+			logging.Errorf("parse timeout error: %v", err)
+			return nil
 		}
 
 		auth := rc.Auth
@@ -67,6 +74,7 @@ func (rc *RouteConfig) MatchRequest(req *http.Request) *Upstream {
 		}
 
 		if regex.MatchString(req.URL.Path) {
+			logging.Debugc(ctx, "matched route: %s", logging.JsonifyNoIndent(route))
 			return &Upstream{
 				Auth:        auth,
 				Timeout:     timeout,
@@ -107,7 +115,7 @@ type Route struct {
 	// 代理地址列表
 	Proxy ProxyConfig `json:"proxy"`
 	// 超时时间（选填）
-	Timeout time.Duration `json:"timeout"`
+	Timeout string `json:"timeout"`
 	// 是否禁用身份验证
 	DisableAuth bool `json:"disable_auth"`
 	// 身份验证配置覆盖

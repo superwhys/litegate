@@ -19,7 +19,7 @@ import (
 
 var (
 	port       = flags.Int("port", 8080, "the service listen port")
-	configFlag = flags.Struct("config", (*config.GatewayConfig)(nil), "gateway server config")
+	configFlag = flags.Struct("gateway", (*config.GatewayConfig)(nil), "gateway server config")
 )
 
 func main() {
@@ -27,8 +27,11 @@ func main() {
 
 	gatewayConfig := new(config.GatewayConfig)
 	logging.PanicError(configFlag(gatewayConfig))
+	logging.Infof("config: %+v", logging.JsonifyNoIndent(gatewayConfig))
 
 	proxyConfigLoader := loader.NewLocalConfigLoader("./content/proxy")
+	logging.PanicError(proxyConfigLoader.Watch())
+
 	gatewayApp := api.SetupGatewayApp(proxyConfigLoader)
 
 	srv := cores.NewCores(

@@ -18,7 +18,7 @@ func ProxyRouter() gin.HandlerFunc {
 		}
 
 		// 1. parse route config
-		upstreamConf := proxyConfig.MatchRequest(c.Request)
+		upstreamConf := proxyConfig.MatchRequest(c, c.Request)
 		if upstreamConf == nil {
 			ginutils.ReturnError(c, http.StatusOK, "route config not found")
 			return
