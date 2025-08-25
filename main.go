@@ -32,7 +32,7 @@ func main() {
 	proxyConfigLoader := loader.NewLocalConfigLoader("./content/proxy")
 	logging.PanicError(proxyConfigLoader.Watch())
 
-	gatewayApp := api.SetupGatewayApp(proxyConfigLoader)
+	gatewayApp := api.SetupGatewayApp(gatewayConfig, proxyConfigLoader)
 
 	srv := cores.NewCores(
 		cores.WithHttpCORS(),

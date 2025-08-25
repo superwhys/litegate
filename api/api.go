@@ -17,7 +17,7 @@ import (
 	"github.com/superwhys/litegate/config"
 )
 
-func SetupGatewayApp(configLoader config.ProxyConfigLoader) http.Handler {
+func SetupGatewayApp(gatewayConf *config.GatewayConfig, configLoader config.ProxyConfigLoader) http.Handler {
 	app := ginutils.NewServerHandler(
 		// debug group
 		ginutils.WithGroupHandlers(
@@ -26,8 +26,8 @@ func SetupGatewayApp(configLoader config.ProxyConfigLoader) http.Handler {
 		),
 		ginutils.WithGroupHandlers(
 			ginutils.WithPrefix("/__:serviceName"),
-			ginutils.WithMiddleware(middleware.ParseProxyConfig(configLoader)),
-			ginutils.WithAnyHandler("/*any", router.ProxyRouter()),
+			ginutils.WithMiddleware(middleware.ParseProxyConfig(gatewayConf, configLoader)),
+			ginutils.WithAnyHandler("/*any", router.ProxyRouter(gatewayConf)),
 		),
 	)
 

@@ -1,4 +1,16 @@
 gateway:
   services:
     - test
-  timeout: 20s
+  timeout: 15s
+  transport:
+    max_conns_per_host: 50000
+    max_idle_conns: 10000
+    max_idle_conns_per_host: 10000
+    idle_conn_timeout: 15s
+    flush_interval: 10ms
+    buffer_size: 131072
+    tcp_dial_timeout: 5s
+    tcp_handshake_timeout: 5s
+    keep_alive: 30s
+    response_header_timeout: 4s
+    expect_continue_timeout: 2s

@@ -7,9 +7,10 @@ import (
 	"github.com/miebyte/goutils/ginutils"
 	"github.com/superwhys/litegate/agent"
 	"github.com/superwhys/litegate/api/middleware"
+	"github.com/superwhys/litegate/config"
 )
 
-func ProxyRouter() gin.HandlerFunc {
+func ProxyRouter(gatewayConf *config.GatewayConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		proxyConfig := middleware.GetProxyConfig(c)
 		if proxyConfig == nil {
@@ -25,13 +26,16 @@ func ProxyRouter() gin.HandlerFunc {
 		}
 
 		// 2. create agent
-		proxyAgent, err := agent.NewAgent(upstreamConf)
+		proxyAgent, err := agent.NewAgent(upstreamConf, gatewayConf)
 		if err != nil {
 			ginutils.ReturnError(c, http.StatusOK, err.Error())
 			return
 		}
 
-		// 3. proxy request
+		// 3. auth route
+		proxyAgent.Auth(c.Writer, c.Request)
+
+		// 4. proxy request
 		proxyAgent.ServeHTTP(c.Writer, c.Request)
 	}
 }

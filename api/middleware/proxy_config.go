@@ -10,6 +10,7 @@ package middleware
 
 import (
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -30,9 +31,14 @@ func GetProxyConfig(c *gin.Context) *config.RouteConfig {
 	return route.(*config.RouteConfig)
 }
 
-func ParseProxyConfig(configLoader config.ProxyConfigLoader) gin.HandlerFunc {
+func ParseProxyConfig(gatewayConf *config.GatewayConfig, configLoader config.ProxyConfigLoader) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		serviceName := c.Param("serviceName")
+		if !slices.Contains(gatewayConf.Services, serviceName) {
+			ginutils.ReturnError(c, http.StatusOK, "service not found")
+			return
+		}
+
 		route, err := configLoader.Get(serviceName)
 		if err != nil {
 			ginutils.ReturnError(c, http.StatusOK, err.Error())

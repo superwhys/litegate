@@ -1,6 +1,6 @@
 {
     "proxy": ["http://127.0.0.1:8080"],
-    "timeout": "10s",
+    "timeout": "2s",
     "auth": { 
         "type": "jwt",
         "source": "$query.token",

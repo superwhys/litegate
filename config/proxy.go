@@ -60,6 +60,7 @@ func (rc *RouteConfig) MatchRequest(ctx context.Context, req *http.Request) *Ups
 		if route.Timeout != "" {
 			timeoutStr = route.Timeout
 		}
+
 		timeout, err := time.ParseDuration(timeoutStr)
 		if err != nil {
 			logging.Errorf("parse timeout error: %v", err)
@@ -74,13 +75,14 @@ func (rc *RouteConfig) MatchRequest(ctx context.Context, req *http.Request) *Ups
 		}
 
 		if regex.MatchString(req.URL.Path) {
-			logging.Debugc(ctx, "matched route: %s", logging.JsonifyNoIndent(route))
-			return &Upstream{
+			upstream := &Upstream{
 				Auth:        auth,
 				Timeout:     timeout,
 				UpstreamURL: route.Proxy.pickAddress(),
 				TargetPath:  req.URL.Path,
 			}
+			logging.Debugc(ctx, "matched route: %s", logging.JsonifyNoIndent(upstream))
+			return upstream
 		}
 	}
 

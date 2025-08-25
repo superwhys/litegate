@@ -15,6 +15,21 @@ import (
 	"github.com/superwhys/litegate/config"
 )
 
+var (
+	gatewayConf = &config.GatewayConfig{
+		Services: []string{"test"},
+		Timeout:  15 * time.Second,
+		Transport: &config.TransportConfig{
+			MaxIdleConns:        10,
+			MaxIdleConnsPerHost: 10,
+			MaxConnsPerHost:     10,
+			IdleConnTimeout:     15 * time.Second,
+			FlushInterval:       10 * time.Millisecond,
+			BufferSize:          131072,
+		},
+	}
+)
+
 func TestServeHTTP_ProxiesRequestWithoutAuth(t *testing.T) {
 	// upstream server
 	app := gin.Default()
@@ -35,7 +50,7 @@ func TestServeHTTP_ProxiesRequestWithoutAuth(t *testing.T) {
 		UpstreamURL: upstream.URL,
 		TargetPath:  "/api/hello",
 		Timeout:     0,
-	})
+	}, gatewayConf)
 	if err != nil {
 		t.Fatalf("NewAgent error: %v", err)
 	}
@@ -89,7 +104,7 @@ func TestServeHTTP_InjectsAuthData(t *testing.T) {
 		UpstreamURL: upstream.URL,
 		TargetPath:  "/api",
 		Timeout:     0,
-	})
+	}, gatewayConf)
 	if err != nil {
 		t.Fatalf("NewAgent error: %v", err)
 	}
@@ -135,7 +150,7 @@ func TestServeHTTP_TimeoutReturnsBadGateway(t *testing.T) {
 		UpstreamURL: upstream.URL,
 		TargetPath:  "/",
 		Timeout:     50 * time.Millisecond,
-	})
+	}, gatewayConf)
 	if err != nil {
 		t.Fatalf("NewAgent error: %v", err)
 	}
@@ -145,7 +160,18 @@ func TestServeHTTP_TimeoutReturnsBadGateway(t *testing.T) {
 	a.ServeHTTP(rr, req)
 
 	resp := rr.Result()
-	if resp.StatusCode != http.StatusBadGateway {
-		t.Fatalf("expected 502, got %d", resp.StatusCode)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("ReadAll error: %v", err)
 	}
+
+	var respBody map[string]any
+	err = json.Unmarshal(body, &respBody)
+	if err != nil {
+		t.Fatalf("Unmarshal error: %v", err)
+	}
+
+	assert.Equal(t, "服务器繁忙", respBody["message"])
 }
