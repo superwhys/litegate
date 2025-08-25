@@ -1,0 +1,4 @@
+gateway:
+  services:
+    - test
+  timeout: 20s
